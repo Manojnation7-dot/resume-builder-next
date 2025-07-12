@@ -1,4 +1,5 @@
-import puppeteer from "puppeteer";
+import chromium from "chrome-aws-lambda";
+import puppeteer from "puppeteer-core";
 import React from "react";
 import { renderToString } from "react-dom/server";
 import ModernTemplate from "../../src/app/components/templates/ModernTemplate";
@@ -15,15 +16,19 @@ export default async function handler(req, res) {
   console.log("✅ Received formData:", formData);
   console.log("✅ Using template:", template);
 
+  let browser = null;
+
   try {
-    const browser = await puppeteer.launch({
-      headless: true,
-      args: ["--no-sandbox", "--disable-setuid-sandbox"],
+    // ✅ Use chrome-aws-lambda for serverless
+    browser = await puppeteer.launch({
+      args: chromium.args,
+      defaultViewport: chromium.defaultViewport,
+      executablePath: await chromium.executablePath || undefined,
+      headless: chromium.headless,
     });
 
     const page = await browser.newPage();
 
-    // Render the selected template to HTML
     let htmlContent;
 
     switch (template) {
@@ -37,16 +42,15 @@ export default async function handler(req, res) {
           <ClassicTemplate formData={formData} pdfMode={true} />
         );
         break;
-      case "creative": htmlContent = renderToString(
+      case "creative":
+        htmlContent = renderToString(
           <CreativeTemplate formData={formData} pdfMode={true} />
         );
-
         break;
       default:
         throw new Error(`Unknown template: ${template}`);
     }
 
-    // Full HTML document with Tailwind
     const fullHtml = `
       <!DOCTYPE html>
       <html>
@@ -83,6 +87,7 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error("❌ Error generating PDF:", error);
+    if (browser) await browser.close();
     res.status(500).json({ message: "PDF generation failed", error: error.message });
   }
 }
