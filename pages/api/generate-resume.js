@@ -19,10 +19,8 @@ export default async function handler(req, res) {
   let browser = null;
 
   try {
-    // ✅ Use chrome-aws-lambda for serverless
     browser = await puppeteer.launch({
       args: chromium.args,
-      defaultViewport: chromium.defaultViewport,
       executablePath: await chromium.executablePath || undefined,
       headless: chromium.headless,
     });
@@ -77,17 +75,17 @@ export default async function handler(req, res) {
       margin: { top: "0mm", right: "0mm", bottom: "0mm", left: "0mm" },
     });
 
-    await browser.close();
-
-    console.log("✅ PDF generated successfully! Buffer length:", pdfBuffer.length);
-
     res.setHeader("Content-Type", "application/pdf");
     res.setHeader("Content-Disposition", "attachment; filename=resume.pdf");
     res.status(200).end(pdfBuffer);
 
+    console.log("✅ PDF generated successfully! Buffer length:", pdfBuffer.length);
   } catch (error) {
     console.error("❌ Error generating PDF:", error);
-    if (browser) await browser.close();
     res.status(500).json({ message: "PDF generation failed", error: error.message });
+  } finally {
+    if (browser !== null) {
+      await browser.close();
+    }
   }
 }
